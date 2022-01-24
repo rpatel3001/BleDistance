@@ -51,7 +51,7 @@ class BeaconTracker {
       validate();
       auto temp = dist_buf;
       std::sort(temp.begin(), temp.end());
-      filt_in.value = dist_buf[std::min((unsigned int)(BUF_SIZE/3), dist_buf.size()-1)];
+      filt_in.value = dist_buf[std::min((unsigned int)(BUF_SIZE/3), (unsigned)((dist_buf.size()-1)/3))];
       filter.push(&filt_in, &filt_out);
       ESP_LOGD(TAG, "Recognized %s iBeacon: %s", name.c_str(), uuid.to_string().c_str());
       ESP_LOGD(TAG, "  RSSI: %d", r);
@@ -82,8 +82,6 @@ void parseAdvertisement(esphome::esp32_ble_tracker::ESPBTDevice dev) {
     auto rssi = dev.get_rssi();
     if(uuid == phoneTracker.uuid) {
       phoneTracker.update(rssi, txpwr);
-    } else if(uuid == watchTracker.uuid) {
-      watchTracker.update(rssi, txpwr);
     }
   }
 }
