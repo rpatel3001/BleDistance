@@ -73,7 +73,6 @@ class BeaconTracker {
 };
 
 BeaconTracker phoneTracker("phone", "D66CFF56-CCB4-47DE-B148-6667181AB156");
-BeaconTracker watchTracker("watch", "3260E3C0-3532-3D6B-5F9C-075948043C3E");
 
 void parseAdvertisement(esphome::esp32_ble_tracker::ESPBTDevice dev) {
   if(dev.get_ibeacon().has_value()) {

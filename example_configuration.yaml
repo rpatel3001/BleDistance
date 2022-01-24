@@ -1,0 +1,54 @@
+esphome:
+  name: example
+  platform: ESP32
+  includes:
+    - custom_components/lib/SoftFilters/
+    - custom_components/ble_dist.h
+
+api:
+  password: ""
+
+ota:
+  password: ""
+
+wifi:
+  ssid: "xxx"
+  password: "xxx"
+
+logger:
+  level: DEBUG
+  logs:
+    esp32_ble_tracker: INFO
+
+esp32_ble_tracker:
+  scan_parameters:
+    duration: 60s
+    active: false
+  on_ble_advertise:
+    then:
+      - lambda: |-
+          parseAdvertisement(x);
+
+sensor:
+  - platform: template
+    name: "Phone RSSI ir-env-1"
+    id: phone_rssi
+    update_interval: 30s
+    unit_of_measurement: "dB"
+    device_class: "signal_strength"
+    state_class: "measurement"
+    accuracy_decimals: 0
+    entity_category: "diagnostic"
+    lambda: |-
+      return phoneTracker.get_rssi();
+  - platform: template
+    name: "Phone Distance ir-env-1"
+    id: phone_dist
+    update_interval: 30s
+    unit_of_measurement: "ft"
+    device_class: ""
+    state_class: "measurement"
+    accuracy_decimals: 1
+    entity_category: "diagnostic"
+    lambda: |-
+      return phoneTracker.get_dist();
