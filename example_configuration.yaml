@@ -2,8 +2,12 @@ esphome:
   name: example
   platform: ESP32
   includes:
-    - custom_components/lib/SoftFilters/
+    - custom_components/lib/OneEuro.h
     - custom_components/ble_dist.h
+  on_boot:
+    then:
+      lambda: |-
+        addTracker("phone", "D66CFF56-CCB4-47DE-B148-6667181AB156");
 
 api:
   password: ""
@@ -40,4 +44,4 @@ sensor:
     accuracy_decimals: 1
     entity_category: "diagnostic"
     lambda: |-
-      return phoneTracker.get_dist();
+      return getTracker("phone").get_dist();

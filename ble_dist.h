@@ -3,23 +3,25 @@
 
 #define TAG "ble_dist"
 #define TIMEOUT 120
-#define BUF_SIZE 10
+#define BUF_SIZE 6
+#define MAX_DIST NAN
+#define MIN_RSSI NAN
 
-#define FCMIN 1e-8
-#define BETA 1e-10
-#define DCUTOFF 1e-8
+#define FCMIN 0.0001
+#define BETA 0.05
+#define DCUTOFF 1.0
 
-# define PATH_LOSS 2.7
+#define PATH_LOSS 2.7
 
 class BeaconTracker {
 
   private:
     std::vector<float> dist_buf;
     std::vector<time_t> time_buf;
+    time_t now;
     int rssi;
-    OneEuroFilter<float, time_t> filter = OneEuroFilter<float, time_t>(1, FCMIN, BETA, DCUTOFF);
-    Reading<float, time_t> filt_in;
-    Reading<float, time_t> filt_out;
+    OneEuro filter = OneEuro(1.0, FCMIN, BETA, DCUTOFF);
+    float filt_dist;
 
   public:
     std::string name;
@@ -35,7 +37,7 @@ class BeaconTracker {
 
   private:
     void validate() {
-      time_t now = esp_timer_get_time();
+      now = esp_timer_get_time();
       while(!time_buf.empty() && (time_buf.size() > BUF_SIZE || now - time_buf.back() > TIMEOUT * 1e6)) {
         dist_buf.pop_back();
         time_buf.pop_back();
@@ -44,35 +46,39 @@ class BeaconTracker {
 
   public:
     void update(int r, int p) {
-      filt_in.timestamp = esp_timer_get_time();
+      now = esp_timer_get_time();
       rssi = r;
       dist_buf.insert(dist_buf.begin(), 3.281 * pow(10.0, (p-r)/(10.0 * PATH_LOSS)));
-      time_buf.insert(time_buf.begin(), filt_in.timestamp);
+      time_buf.insert(time_buf.begin(), now);
       validate();
       auto temp = dist_buf;
       std::sort(temp.begin(), temp.end());
-      filt_in.value = dist_buf[std::min((unsigned)(BUF_SIZE/3), (unsigned)((dist_buf.size()-1)/3))];
-      filter.push(&filt_in, &filt_out);
+      filt_dist = filter(temp[std::max(0u,(unsigned)(dist_buf.size()/3.0-1))], now);
+      std::string s = "";
+      for(auto b : temp)
+        s += std::to_string(b) + ", ";
       ESP_LOGD(TAG, "Recognized %s iBeacon: %s", name.c_str(), uuid.to_string().c_str());
       ESP_LOGD(TAG, "  RSSI: %d", r);
-      ESP_LOGD(TAG, "  TX Power: %d", p);
-      ESP_LOGD(TAG, "  Raw Distance: %g", dist_buf[0]);
-      ESP_LOGD(TAG, "  Filtered Distance: %g", filt_out.value);
     }
 
     float get_rssi() {
       validate();
-      return time_buf.empty() ? NAN : (float)rssi;
+      return time_buf.empty() ? MIN_RSSI : std::max((float)rssi, MIN_RSSI);
+    }
+
+    float get_raw_dist() {
+      validate();
+      return time_buf.empty() ? MAX_DIST : std::min(dist_buf[0], MAX_DIST);
     }
 
     float get_dist() {
       validate();
-      return time_buf.empty() ? NAN : filt_out.value;
+      return time_buf.empty() ? MAX_DIST : std::min(filt_dist, MAX_DIST);
     }
 
 };
 
-BeaconTracker phoneTracker("phone", "D66CFF56-CCB4-47DE-B148-6667181AB156");
+std::vector<BeaconTracker> trackers;
 
 void parseAdvertisement(esphome::esp32_ble_tracker::ESPBTDevice dev) {
   if(dev.get_ibeacon().has_value()) {
@@ -80,10 +86,22 @@ void parseAdvertisement(esphome::esp32_ble_tracker::ESPBTDevice dev) {
     auto uuid = ib.get_uuid();
     auto txpwr = ib.get_signal_power();
     auto rssi = dev.get_rssi();
-    if(uuid == phoneTracker.uuid) {
-      phoneTracker.update(rssi, txpwr);
-    }
+    for(auto &t : trackers)
+      if(t.uuid == uuid)
+        t.update(rssi, txpwr);
   }
+}
+
+void addTracker(std::string n, std::string u) {
+  trackers.emplace(trackers.end(), n, u);
+}
+
+BeaconTracker& getTracker(std::string n) {
+  for(auto &t : trackers)
+    if(t.name == n)
+      return t;
+  ESP_LOGW(TAG, "BeaconTracker %s not recognized, returning the first tracker (hopefully one exists)");
+  return trackers[0];
 }
 
 #endif
