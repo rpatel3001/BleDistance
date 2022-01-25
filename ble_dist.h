@@ -15,22 +15,24 @@
 
 class BeaconTracker {
 
-  private:
-    std::vector<float> dist_buf;
-    std::vector<time_t> time_buf;
-    time_t now;
-    int rssi;
-    OneEuro filter = OneEuro(1.0, FCMIN, BETA, DCUTOFF);
-    float filt_dist;
-
   public:
     std::string name;
     esphome::esp32_ble_tracker::ESPBTUUID uuid;
 
+  private:
+    OneEuro filter;
+    std::vector<float> dist_buf;
+    std::vector<time_t> time_buf;
+    time_t now;
+    int rssi;
+    float filt_dist;
+
   public:
-    BeaconTracker(std::string n, std::string u) {
-      name = n;
-      uuid = esphome::esp32_ble_tracker::ESPBTUUID::from_raw(u.c_str());
+    BeaconTracker(std::string n, std::string u, float fcmin, float beta)
+    : name(n)
+    , uuid(esphome::esp32_ble_tracker::ESPBTUUID::from_raw(u.c_str()))
+    , filter(1.0, fcmin, beta, DCUTOFF)
+    {
       dist_buf.reserve(BUF_SIZE+1);
       time_buf.reserve(BUF_SIZE+1);
     }
@@ -92,8 +94,8 @@ void parseAdvertisement(esphome::esp32_ble_tracker::ESPBTDevice dev) {
   }
 }
 
-void addTracker(std::string n, std::string u) {
-  trackers.emplace(trackers.end(), n, u);
+void addTracker(std::string n, std::string u, float fcmin = FCMIN, float beta = BETA) {
+  trackers.emplace(trackers.end(), n, u, fcmin, beta);
 }
 
 BeaconTracker& getTracker(std::string n) {
