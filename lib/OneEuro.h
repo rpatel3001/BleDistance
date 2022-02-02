@@ -22,7 +22,7 @@ struct OneEuro {
 	OneEuro(float _freq, float _mincutoff, float _beta, float _dcutoff) : mincutoff(_mincutoff), beta(_beta), dcutoff(_dcutoff), last_time_(-1) {}
 	float operator()(float x, time_t t = -1) {
 		float dx = 0.0;
-		
+
 		if(last_time_ != -1 && t != -1 && t != last_time_) {
 			dt = (t - last_time_) / 1e6;
 		}

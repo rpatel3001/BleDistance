@@ -3,7 +3,7 @@
 
 #define TAG "ble_dist"
 #define TIMEOUT 120
-#define BUF_SIZE 6
+#define BUF_SIZE 9
 #define MAX_DIST NAN
 #define MIN_RSSI NAN
 
@@ -58,7 +58,7 @@ class BeaconTracker {
       filt_dist = filter(temp[std::max(0u,(unsigned)(dist_buf.size()/3.0-1))], now);
       std::string s = "";
       for(auto b : temp)
-        s += std::to_string(b) + ", ";
+        s += esphome::to_string(b) + ", ";
       ESP_LOGD(TAG, "Recognized %s iBeacon: %s", name.c_str(), uuid.to_string().c_str());
       ESP_LOGD(TAG, "  RSSI: %d", r);
     }
@@ -102,7 +102,7 @@ BeaconTracker& getTracker(std::string n) {
   for(auto &t : trackers)
     if(t.name == n)
       return t;
-  ESP_LOGW(TAG, "BeaconTracker %s not recognized, returning the first tracker (hopefully one exists)");
+  ESP_LOGW(TAG, "BeaconTracker %s not recognized, returning the first tracker (hopefully one exists)", n.c_str());
   return trackers[0];
 }
 
