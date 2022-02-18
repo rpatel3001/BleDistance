@@ -30,7 +30,7 @@ class BeaconTracker {
   public:
     BeaconTracker(std::string n, std::string u, float fcmin, float beta)
     : name(n)
-    , uuid(esphome::esp32_ble_tracker::ESPBTUUID::from_raw(u.c_str()))
+    , uuid(esphome::esp32_ble_tracker::ESPBTUUID::from_raw(reverse_bytes(u)))
     , filter(1.0, fcmin, beta, DCUTOFF)
     {
       dist_buf.reserve(BUF_SIZE+1);
@@ -38,6 +38,21 @@ class BeaconTracker {
     }
 
   private:
+    static std::string reverse_bytes(std::string uuid) {
+      uuid.erase(std::remove(uuid.begin(), uuid.end(), '-'), uuid.end());
+      std::string out = uuid;
+      size_t len = uuid.length();
+      for(size_t i = 0; i < len; i += 2) {
+        out[i] = uuid[len - i - 2];
+        out[i + 1] = uuid[len - i - 1];
+      }
+      out.insert(8, "-");
+      out.insert(13, "-");
+      out.insert(18, "-");
+      out.insert(23, "-");
+      return out;
+    }
+
     void validate() {
       now = esp_timer_get_time();
       while(!time_buf.empty() && (time_buf.size() > BUF_SIZE || now - time_buf.back() > TIMEOUT * 1e6)) {
