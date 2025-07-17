@@ -1,9 +1,12 @@
 #ifndef BLE_DIST
 #define BLE_DIST
 
+#include "hal/gpio_ll.h"
+#include <esp_timer.h>
+
 #define TAG "ble_dist"
 #define TIMEOUT 120
-#define BUF_SIZE 9
+#define BUF_SIZE 15
 #define MAX_DIST NAN
 #define MIN_RSSI NAN
 
@@ -30,29 +33,17 @@ class BeaconTracker {
   public:
     BeaconTracker(std::string n, std::string u, float fcmin, float beta)
     : name(n)
-    , uuid(esphome::esp32_ble_tracker::ESPBTUUID::from_raw(reverse_bytes(u)))
+    , uuid(esphome::esp32_ble_tracker::ESPBTUUID::from_raw(u))
     , filter(1.0, fcmin, beta, DCUTOFF)
     {
       dist_buf.reserve(BUF_SIZE+1);
       time_buf.reserve(BUF_SIZE+1);
+//      ESP_LOGW(TAG, "registering iBeacon");
+//      for (int8_t i = 15; i >= 0; i--)
+//        ESP_LOGW(TAG, "%02X", uuid.get_uuid().uuid.uuid128[i]);
     }
 
   private:
-    static std::string reverse_bytes(std::string uuid) {
-      uuid.erase(std::remove(uuid.begin(), uuid.end(), '-'), uuid.end());
-      std::string out = uuid;
-      size_t len = uuid.length();
-      for(size_t i = 0; i < len; i += 2) {
-        out[i] = uuid[len - i - 2];
-        out[i + 1] = uuid[len - i - 1];
-      }
-      out.insert(8, "-");
-      out.insert(13, "-");
-      out.insert(18, "-");
-      out.insert(23, "-");
-      return out;
-    }
-
     void validate() {
       now = esp_timer_get_time();
       while(!time_buf.empty() && (time_buf.size() > BUF_SIZE || now - time_buf.back() > TIMEOUT * 1e6)) {
@@ -65,7 +56,8 @@ class BeaconTracker {
     void update(int r, int p) {
       now = esp_timer_get_time();
       rssi = r;
-      dist_buf.insert(dist_buf.begin(), 3.281 * pow(10.0, (p-r)/(10.0 * PATH_LOSS)));
+      float dist = 3.281 * pow(10.0, (p-r)/(10.0 * PATH_LOSS));
+      dist_buf.insert(dist_buf.begin(), dist);
       time_buf.insert(time_buf.begin(), now);
       validate();
       auto temp = dist_buf;
@@ -76,6 +68,8 @@ class BeaconTracker {
         s += esphome::to_string(b) + ", ";
       ESP_LOGD(TAG, "Recognized %s iBeacon: %s", name.c_str(), uuid.to_string().c_str());
       ESP_LOGD(TAG, "  RSSI: %d", r);
+      ESP_LOGD(TAG, "  TPWR: %d", p);
+      ESP_LOGD(TAG, "  DIST: %.3f", dist);
     }
 
     float get_rssi() {
@@ -106,6 +100,10 @@ void parseAdvertisement(esphome::esp32_ble_tracker::ESPBTDevice dev) {
     for(auto &t : trackers)
       if(t.uuid == uuid)
         t.update(rssi, txpwr);
+//      else
+//        ESP_LOGW(TAG, "got unknown iBeacon");
+//        for (int8_t i = 15; i >= 0; i--)
+//          ESP_LOGW(TAG, "%02X", uuid.get_uuid().uuid.uuid128[i]);
   }
 }
 
